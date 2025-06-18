@@ -6,7 +6,7 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const webpush = require("web-push");
-const moment = require('moment');
+const moment = require("moment");
 
 const app = express();
 
@@ -14,13 +14,13 @@ const app = express();
 console.log("🔧 Configuring CORS...");
 app.use(
   cors({
-    origin: function (origin, callback) {
-      callback(null, true); // Temporarily allow all origins (safe for development)
-    },
+    origin: "https://visitor-frontend-mu.vercel.app", // ✅ your actual frontend domain
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // ✅ required for JWT, cookies, etc.
   }),
 );
+
 console.log("Test 11");
 //app.options("*", (req, res) => res.sendStatus(204));
 console.log("Test21");
@@ -146,7 +146,10 @@ app.post("/api/visitors", authMiddleware, async (req, res) => {
 
     const resident = await User.findOne({ role: "resident", block, flat });
     if (resident?.subscription) {
-       console.log("📬 Sending push notification to:", resident.subscription.endpoint)
+      console.log(
+        "📬 Sending push notification to:",
+        resident.subscription.endpoint,
+      );
       await webpush
         .sendNotification(
           resident.subscription,
@@ -172,9 +175,7 @@ app.get("/api/visitors", authMiddleware, async (req, res) => {
 
   // Base filter
   const filter =
-    user.role === "resident"
-      ? { block: user.block, flat: user.flat }
-      : {};
+    user.role === "resident" ? { block: user.block, flat: user.flat } : {};
 
   // Archived filter
   if (archived === "true") filter.isArchived = true;
@@ -197,7 +198,6 @@ app.get("/api/visitors", authMiddleware, async (req, res) => {
   }
 });
 
-    
 app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
   try {
     const { status, actualArrival, departureTime } = req.body;
@@ -205,8 +205,8 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
     if (!v) return res.status(404).json({ error: "Not found" });
 
     // ✅ Allow resident to approve/deny only if the visitor matches their flat/block
-    if (status && ['approved', 'denied'].includes(status)) {
-      if (req.user.role === 'resident') {
+    if (status && ["approved", "denied"].includes(status)) {
+      if (req.user.role === "resident") {
         if (v.block !== req.user.block || v.flat !== req.user.flat) {
           return res.status(403).json({ error: "Access denied" });
         }
@@ -215,7 +215,7 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
       v.status = status;
 
       // ✅ If denied, mark as archived immediately
-      if (status === 'denied') {
+      if (status === "denied") {
         v.isArchived = true;
         v.entryDate = moment().format("DD-MM-YYYY");
       }
@@ -224,7 +224,7 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
     // ✅ Mark arrival (for guards)
     if (actualArrival) {
       v.actualArrival = actualArrival;
-      v.status = 'arrived';
+      v.status = "arrived";
     }
 
     // ✅ Mark departure (for guards)
@@ -232,7 +232,7 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
       v.departureTime = departureTime;
       v.isArchived = true;
       v.entryDate = moment().format("DD-MM-YYYY");
-      v.status = 'departed';
+      v.status = "departed";
     }
 
     await v.save();
@@ -250,7 +250,8 @@ app.post("/api/change-password", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Old password incorrect" });
+    if (!isMatch)
+      return res.status(400).json({ message: "Old password incorrect" });
 
     const hashedNew = await bcrypt.hash(newPassword, 10);
     user.password = hashedNew;
@@ -261,8 +262,6 @@ app.post("/api/change-password", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
 
 // ➤ Start server
 console.log("🎯 Ready to start listening...");
