@@ -7,8 +7,13 @@ requiredFiles = [".replit", "replit.nix", "package.json", "package-lock.json"]
 
 [nix]
 channel = "stable-24_11"
+packages = ["nano"]
 
 [deployment]
-run = ["node", "index.js"]
-deploymentTarget = "autoscale"
+run = "node index.js"
+deploymentTarget = "preview"
 ignorePorts = false
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
