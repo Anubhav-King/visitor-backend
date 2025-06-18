@@ -173,23 +173,51 @@ app.get("/api/visitors", authMiddleware, async (req, res) => {
   const user = req.user;
   const { archived, block, flat, date, status } = req.query;
 
-  // Base filter
-  const filter =
-    user.role === "resident" ? { block: user.block, flat: user.flat } : {};
+  const oneMinuteAgo = new Date(Date.now() - 60000); // 1 minute ago
+
+  const filter = {};
+
+  // Role-based visibility
+  if (user.role === "resident") {
+    filter.block = user.block;
+    filter.flat = user.flat;
+  }
 
   // Archived filter
-  if (archived === "true") filter.isArchived = true;
-  else if (archived === "false") filter.isArchived = false;
+  if (archived === "true") {
+    filter.isArchived = true;
+  } else if (archived === "false") {
+    filter.isArchived = false;
 
-  // Guard-specific filters
+    // ✅ Add 1-minute delay logic only for unarchived (current) view
+    filter.$or = [
+      { status: { $ne: "denied" } },
+      { status: "denied", updatedAt: { $gte: oneMinuteAgo } }
+    ];
+  }
+
+  // Guard filters
   if (user.role === "guard") {
     if (block) filter.block = Number(block);
     if (flat) filter.flat = Number(flat);
     if (status) filter.status = status;
-    if (date) filter.entryDate = date; // stored in "DD-MM-YYYY"
+    if (date) filter.entryDate = date; // "DD-MM-YYYY"
   }
 
   try {
+    // ✅ Auto-archive denied visitors after 1 minute
+    await Visitor.updateMany(
+      {
+        status: "denied",
+        isArchived: false,
+        updatedAt: { $lt: oneMinuteAgo }
+      },
+      {
+        isArchived: true,
+        entryDate: moment().format("DD-MM-YYYY")
+      }
+    );
+
     const visitors = await Visitor.find(filter).sort({ createdAt: -1 });
     res.json(visitors);
   } catch (err) {
@@ -197,7 +225,6 @@ app.get("/api/visitors", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch visitors" });
   }
 });
-
 app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
   try {
     const { status, actualArrival, departureTime } = req.body;
@@ -214,10 +241,24 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
 
       v.status = status;
 
-      // ✅ If denied, mark as archived immediately
       if (status === "denied") {
-        v.isArchived = true;
         v.entryDate = moment().format("DD-MM-YYYY");
+
+        // ✅ Send push notification to guards
+        const guards = await User.find({
+          role: "guard",
+          pushSubscription: { $exists: true }
+        });
+
+        for (const g of guards) {
+          sendPushNotification(g.pushSubscription, {
+            title: "Visitor Denied",
+            body: `${v.name} was denied by ${req.user.name}`,
+          });
+        }
+
+        // ❌ DO NOT archive immediately
+        // Archiving will be done after 1 minute via GET filtering
       }
     }
 
