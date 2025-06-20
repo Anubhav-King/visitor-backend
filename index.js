@@ -289,11 +289,15 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
     // ✅ Save vehicle info if present
     if (vehicleType !== undefined) {
       v.vehicleType = vehicleType;
+      if (vehicleType === "none") {
+        v.vehicleNumber = ""; // clear if no vehicle
+      }
     }
 
-    if (vehicleNumber !== undefined) {
+    if (vehicleNumber !== undefined && vehicleType !== "none") {
       v.vehicleNumber = vehicleNumber;
     }
+
 
 
     await v.save();
