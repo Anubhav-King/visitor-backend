@@ -227,7 +227,15 @@ app.get("/api/visitors", authMiddleware, async (req, res) => {
 });
 app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
   try {
-    const { status, actualArrival, departureTime } = req.body;
+    const {
+      status,
+      actualArrival,
+      departureTime,
+      photo,
+      vehicleType,
+      vehicleNumber,
+    } = req.body;
+
     const v = await Visitor.findById(req.params.id);
     if (!v) return res.status(404).json({ error: "Not found" });
 
@@ -256,24 +264,35 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
             body: `${v.name} was denied by ${req.user.name}`,
           });
         }
-
-        // ❌ DO NOT archive immediately
-        // Archiving will be done after 1 minute via GET filtering
       }
     }
 
-    // ✅ Mark arrival (for guards)
+    // ✅ Mark actual arrival
     if (actualArrival) {
       v.actualArrival = actualArrival;
       v.status = "arrived";
     }
 
-    // ✅ Mark departure (for guards)
+    // ✅ Mark departure
     if (departureTime) {
       v.departureTime = departureTime;
+      v.status = "departed";
       v.isArchived = true;
       v.entryDate = moment().format("DD-MM-YYYY");
-      v.status = "departed";
+    }
+
+    // ✅ Save/update photo if present
+    if (photo) {
+      v.photo = photo;
+    }
+
+    // ✅ Save vehicle info if present
+    if (vehicleType) {
+      v.vehicleType = vehicleType;
+    }
+
+    if (vehicleNumber) {
+      v.vehicleNumber = vehicleNumber;
     }
 
     await v.save();
@@ -283,6 +302,7 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Failed to update visitor" });
   }
 });
+
 
 // In your `index.js` or `routes/auth.js`
 app.post("/api/change-password", authMiddleware, async (req, res) => {
