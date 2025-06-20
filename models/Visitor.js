@@ -9,7 +9,7 @@ const visitorSchema = new mongoose.Schema({
   expectedArrival:  { type: String }, // "HH:MM"
   actualArrival:    { type: String },
   departureTime:    { type: String },
-  vehicleType:      { type: String, enum: ["Bike", "Car", ""], required: false },
+  vehicleType:      { type: String, enum: ["Bike", "Car", "none"], required: false, default: "none" },
   vehicleNumber:    { type: String, required: false },
   contactNumber:    { type: String, required: true },
   photo:            { type: String }, // base64
