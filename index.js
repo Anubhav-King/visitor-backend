@@ -282,18 +282,19 @@ app.patch("/api/visitors/:id", authMiddleware, async (req, res) => {
     }
 
     // ✅ Save/update photo if present
-    if (photo) {
+    if (photo !== undefined) {
       v.photo = photo;
     }
 
     // ✅ Save vehicle info if present
-    if (vehicleType) {
+    if (vehicleType !== undefined) {
       v.vehicleType = vehicleType;
     }
 
-    if (vehicleNumber) {
+    if (vehicleNumber !== undefined) {
       v.vehicleNumber = vehicleNumber;
     }
+
 
     await v.save();
     res.json(v);
